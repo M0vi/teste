@@ -6,23 +6,21 @@ local Hawk = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheHanki
 
 -- Create Window
 local Window = Hawk:Window({
-    ScriptName = "Squares' Hitbox Extender",
+    ScriptName = "Hitbox Expander",
     DestroyIfExists = true,
     Theme = "Dark"
 })
 
--- Create Tabs
 local mainTab = Window:Tab("Main")
 local emergencyTab = Window:Tab("Emergency")
 
--- Main Tab
 local mainSection = mainTab:Section("Hitbox Extender")
 local espSection = mainTab:Section("ESP")
 local ignoresSection = mainTab:Section("Ignores")
 local collisionsSection = mainTab:Section("Collisions")
 local miscSection = mainTab:Section("Keybinds")
 
--- Emergency Tab
+
 local emergencySection = emergencyTab:Section("Fixes")
 
 -- Services
@@ -276,80 +274,7 @@ local function addPlayer(player)
             if lPlayerTeamName == "Global Occult Coalition" then
                 selfTeam = "Who?"
             end
-            if lPlayerTeamName == "Unusual Incidents Unit" then
-                selfTeam = "Who2?"
-            end
-            if playerTeamName == "Class-D Personnel" or playerTeamName == "Chaos Insurgency" then
-                playerTeam = "Chads"
-            end
-            if playerTeamName == "Facility Personnel" or playerTeamName == "Security Department" or playerTeamName == "Mobile Task Force" then
-                playerTeam = "Crayon Eaters"
-            end
-            if playerTeamName == "SCPs" or playerTeamName == "Serpent's Hand" then
-                playerTeam = "Menaces to Society"
-            end
-            if playerTeamName == "Global Occult Coalition" then
-                playerTeam = "Who?"
-            end
-            if playerTeamName == "Unusual Incidents Unit" then
-                selfTeam = "Who2?"
-            end
-            if selfTeam == "Who2?" or playerTeam == "Who2?" then
-                if selfTeam == "Crayon Eaters" or playerTeam == "Crayon Eaters" or selfTeam == "Who?" or playerTeam == "Who?" then
-                    return true
-                end
-            end
-            return selfTeam == playerTeam
-        elseif game.PlaceId == 8770868695 then -- Anomalous Activities: First Contact
-            if not lPlayer.Character or not playerChar or not player.Team or player.Team.Name == "Dead" or player.Team.Name == "Inactive" then return true end
-            return lPlayer.Character.Parent == playerChar.Parent
-        elseif game.PlaceId == 5884786982 then -- Escape The Darkness
-            if not lPlayer.Character or not playerChar then return true end
-            return lPlayer.Character.name ~= "Killer" and playerChar.Name ~= "Killer"
-        elseif game.GameId == 2162282815 then -- Rush Point
-            if not player:FindFirstChild("SelectedTeam") then return true end
-            return player.SelectedTeam.Value == lPlayer.SelectedTeam.Value
-        elseif game.PlaceId == 1240644540 then -- Vampire Hunters 3
-            if not teamModule or not teamModule.IsPlayerSurvivor then return true end
-            return teamModule.IsPlayerSurvivor(nil, player) == true and teamModule.IsPlayerSurvivor(nil, lPlayer) == true
-        elseif game.PlaceId == 10236714118 then -- Return of Humans vs Zombies
-            if not player:FindFirstChild("PlayerData") or not player.PlayerData:FindFirstChild("Team") then return true end
-            return lPlayer.PlayerData.Team.Value == player.PlayerData.Team.Value
-        end
-        return lPlayer.Team == player.Team
-    end
 
-    local function isDead()
-        if not playerChar then return true end
-        local humanoid = playerChar:FindFirstChildWhichIsA("Humanoid")
-        if game.PlaceId == 6172932937 then -- Energy Assault
-            return player.ragdolled.Value
-        elseif game.GameId == 718936923 then -- Neighborhood War
-            return playerChar:FindFirstChild("Dead") ~= nil
-        end
-        return humanoid and humanoid:GetState() == Enum.HumanoidStateType.Dead
-    end
-
-    local function isSitting()
-        local humanoid = playerChar:FindFirstChildWhichIsA("Humanoid")
-        return Toggles.extenderSitCheck and humanoid ~= nil and humanoid.Sit == true
-    end
-
-    local function isFFed()
-        if not playerChar then return false end
-        if game.PlaceId == 4991214437 or game.PlaceId == 6652350934 then -- town
-            return playerChar.Head.Material == Enum.Material.ForceField
-        end
-        local ff = playerChar:FindFirstChildWhichIsA("ForceField")
-        return Toggles.extenderFFCheck and playerChar ~= nil and ff ~= nil and ff.Visible == true
-    end
-
-    local function isIgnored()
-        if not playerChar then return true end
-        return ignoreOwnTeamToggled and isTeammate() or
-        ignoreSelectedTeamsToggled and table.find(ignoreTeamList, tostring(player.Team)) or
-        ignoreSelectedPlayersToggled and table.find(ignorePlayerList, tostring(player.Name))
-    end
 
     local debounce = false
     local function setup(part)
@@ -483,69 +408,6 @@ local function addPlayer(player)
         debounce = false
     end
 
-    -- ESP
-    local nameEsp = Drawing.new("Text")
-    nameEsp.Center = true
-    nameEsp.Outline = true
-    local chams = Instance.new("Highlight")
-    chams.Parent = game:GetService("CoreGui")
-
-    function playerIdx:UpdateESP()
-        if not playerChar or isIgnored() or isDead() then
-            nameEsp.Visible = false
-            chams.Enabled = false
-            return
-        end
-        if espNameToggled then
-            local target = playerChar:FindFirstChild("Torso") or playerChar:FindFirstChild("HumanoidRootPart")
-            if target then
-                local pos, vis = Camera:WorldToViewportPoint(target.Position)
-                if vis then
-                    if espNameType == "Display Name" then
-                        nameEsp.Text = player.DisplayName
-                    else
-                        nameEsp.Text = player.Name
-                    end
-                    if espNameUseTeamColor then
-                        nameEsp.Color = player.TeamColor.Color
-                    else
-                        nameEsp.Color = espNameColor1
-                    end
-                    nameEsp.OutlineColor = espNameColor2
-                    nameEsp.Position = Vector2.new(pos.X, pos.Y)
-                    nameEsp.Size = 1000 / pos.Z + 10
-                    nameEsp.Visible = true
-                else
-                    nameEsp.Visible = false
-                end
-            else
-                nameEsp.Visible = false
-            end
-        else
-            nameEsp.Visible = false
-        end
-        if espHighlightToggled then
-            chams.Adornee = playerChar
-            if espHighlightUseTeamColor then
-                chams.FillColor = player.TeamColor.Color
-                chams.OutlineColor = player.TeamColor.Color
-            else
-                chams.FillColor = espHighlightColor1
-                chams.OutlineColor = espHighlightColor2
-            end
-            chams.DepthMode = Enum.HighlightDepthMode[espHighlightDepthMode]
-            chams.FillTransparency = espHighlightFillTransparency
-            chams.OutlineTransparency = espHighlightOutlineTransparency
-            chams.Enabled = true
-        else
-            chams.Enabled = false
-        end
-    end
-
-    function playerIdx:DeleteVisuals()
-        nameEsp:Remove()
-        chams:Destroy()
-    end
 
     -- jank fix for CharacterAdded firing too early
     local function WaitForFullChar(char)
@@ -641,30 +503,7 @@ local function addPlayer(player)
         ff.Changed:Connect(function()
             playerIdx:Update()
         end)
-    end
-    if game.GameId == 2162282815 then -- Rush Point
-        local mapFolder = Workspace:WaitForChild("MapFolder")
-        local gamePlayers = mapFolder:WaitForChild("Players")
-        for _, v in pairs(gamePlayers:GetChildren()) do
-            if v.Name == player.Name then
-                playerChar = v
-            end
-        end
-        gamePlayers.ChildAdded:Connect(function(v)
-            if v.Name == player.Name then
-                playerChar = v
-            end
-        end)
-    end
-    if game.PlaceId == 4991214437 or game.PlaceId == 6652350934 then -- town
-        if playerChar then
-            local head = playerChar:FindFirstChild("Head")
-            head:GetPropertyChangedSignal("Material"):Connect(function()
-                playerIdx:Update()
-            end)
-        end
-    end
-end
+
 
 local function removePlayer(player)
     if not players[player] then return end
