@@ -1,349 +1,188 @@
--- Makes the lib working
+-- Hawk HUB Lib
 _Hawk = "ohhahtuhthttouttpwuttuaunbotwo"
-
--- Load the Hawk Library
 local Hawk = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheHanki/HawkHUB/main/LibSources/HawkLib.lua", true))()
 
--- Create Window
+-- Criando a janela do Hawk HUB
 local Window = Hawk:Window({
-    ScriptName = "Hitbox Expander",
-    DestroyIfExists = true,
-    Theme = "Dark"
+	ScriptName = "Hawk HUB",
+	DestroyIfExists = true,
+	Theme = "Dark"
 })
 
-local mainTab = Window:Tab("Main")
-local emergencyTab = Window:Tab("Emergency")
+-- Criando a aba do Hitbox Expander
+local hitboxTab = Window:Tab("Hitbox Expander")
 
-local mainSection = mainTab:Section("Hitbox Extender")
-local ignoresSection = mainTab:Section("Ignores")
-local collisionsSection = mainTab:Section("Collisions")
-local miscSection = mainTab:Section("Keybinds")
+-- Função para o debounce
+local debounce = false
+local defaultProperties = {}
+local playerChar = game.Players.LocalPlayer.Character
 
-local emergencySection = emergencyTab:Section("Fixes")
+-- Função para configurar propriedades do hitbox
+local function setup(part)
+	defaultProperties[part.Name] = {}
+	local properties = defaultProperties[part.Name]
+	properties.Size = part.Size
+	properties.Transparency = part.Transparency
+	properties.Massless = part.Massless
+	properties.CanCollide = part.CanCollide
+	properties.CollisionGroupId = part.CollisionGroupId
+	
+	local getSizeHook = part:AddGetHook("Size", properties.Size)
+	local getTransparencyHook = part:AddGetHook("Transparency", properties.Transparency)
+	local getMasslessHook = part:AddGetHook("Massless", properties.Massless)
+	local getCanCollideHook = part:AddGetHook("CanCollide", properties.CanCollide)
+	
+	local setSizeHook = part:AddSetHook("Size", function(_, value)
+		properties.Size = value
+		getSizeHook:Modify("Size", properties.Size)
+		if Toggles.extenderToggled.Value then
+			local size = Options.extenderSize.Value
+			return Vector3.new(size, size, size)
+		end
+		return properties.Size
+	end)
+	
+	local setTransparencyHook = part:AddSetHook("Transparency", function(_, value)
+		properties.Transparency = value
+		getTransparencyHook:Modify("Transparency", properties.Transparency)
+		if Toggles.extenderToggled.Value then
+			return Options.extenderTransparency.Value
+		end
+		return properties.Transparency
+	end)
+	
+	local setMasslessHook = part:AddSetHook("Massless", function(_, value)
+		properties.Massless = value
+		getMasslessHook:Modify("Massless", properties.Massless)
+		if Toggles.extenderToggled.Value then
+			if part.Name ~= "HumanoidRootPart" then
+				return true
+			end
+		end
+		return properties.Massless
+	end)
+	
+	local setCanCollideHook = part:AddSetHook("CanCollide", function(_, value)
+		properties.CanCollide = value
+		getCanCollideHook:Modify("CanCollide", properties.CanCollide)
+		if Toggles.extenderToggled.Value and not Toggles.collisionsToggled.Value then
+			if part.Name == "Head" or part.Name == "HumanoidRootPart" then
+				return false
+			end
+		end
+		return properties.CanCollide
+	end)
 
--- Services
-local Teams = game:GetService("Teams")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Camera = Workspace.CurrentCamera
-local lPlayer = Players.LocalPlayer
-
--- Variables
-local players = {}
-local entities = {}
-local teamModule = nil
-
--- MT-API
-if not getgenv().MTAPIMutex then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/RectangularObject/MT-Api-v2/main/__source/mt-api%20v2.lua", true))()
+	local changed = part.Changed:Connect(function(property)
+		if debounce then return end
+		if properties[property] then
+			if properties[property] ~= part[property] then
+				properties[property] = part[property]
+			end
+			playerIdx:Update()
+		end
+	end)
+	
+	part.Destroying:Connect(function()
+		getSizeHook:Remove()
+		getTransparencyHook:Remove()
+		getMasslessHook:Remove()
+		getCanCollideHook:Remove()
+		setSizeHook:Remove()
+		setTransparencyHook:Remove()
+		setMasslessHook:Remove()
+		setCanCollideHook:Remove()
+		changed:Disconnect()
+	end)
 end
 
--- Game Loaded Check
-if not game:IsLoaded() then
-    game.Loaded:Wait()
+-- Função para verificar se a parte está ativa
+local function isActive(part)
+	local name = part.Name
+	for _, v in pairs(Options.extenderPartList:GetActiveValues()) do
+		if string.match(name, v) or (v == "Custom Part" and string.match(name, Options.customPartName.Value)) or
+		(v == "Left Arm" and string.match(name, "Left") and (string.match(name, "Arm") or string.match(name, "Hand"))) or
+		(v == "Right Arm" and string.match(name, "Right") and (string.match(name, "Arm") or string.match(name, "Hand"))) or
+		(v == "Left Leg" and string.match(name, "Left") and (string.match(name, "Leg") or string.match(name, "Foot"))) or
+		(v == "Right Leg" and string.match(name, "Right") and (string.match(name, "Leg") or string.match(name, "Foot"))) then
+			return true
+		end
+	end
+	return false
 end
 
--- UI Elements
-local extenderToggled = false
-local extenderSize = 10
-local extenderTransparency = 0.5
-local customPartName = "HeadHB"
-local extenderPartList = {"HumanoidRootPart"}
-local ignoreOwnTeamToggled = false
-local ignoreSelectedTeamsToggled = false
-local ignoreSelectedPlayersToggled = false
-local ignorePlayerList = {}
-local ignoreTeamList = {}
-local collisionsToggled = false
-
--- UI Setup
-mainSection:Toggle("Toggle", function(value)
-    extenderToggled = value
-    updatePlayers()
-end)
-
-mainSection:Slider("Size", 2, 100, function(value)
-    extenderSize = value
-    updatePlayers()
-end)
-
-mainSection:Slider("Transparency", 0, 1, function(value)
-    extenderTransparency = value
-    updatePlayers()
-end)
-
-mainSection:TextBox("Custom Part Name", "HeadHB", function(value)
-    customPartName = value
-    updatePlayers()
-end)
-
-mainSection:Dropdown("Body Parts", {"Custom Part", "Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, function(selected)
-    extenderPartList = selected
-    updatePlayers()
-end)
-
-ignoresSection:Toggle("Ignore Sitting Players", function(value)
-    Toggles.extenderSitCheck = value
-    updatePlayers()
-end)
-
-ignoresSection:Toggle("Ignore Forcefielded Players", function(value)
-    Toggles.extenderFFCheck = value
-    updatePlayers()
-end)
-
-ignoresSection:Toggle("Ignore Own Team", function(value)
-    ignoreOwnTeamToggled = value
-    updatePlayers()
-end)
-
-ignoresSection:Toggle("Ignore Selected Teams", function(value)
-    ignoreSelectedTeamsToggled = value
-    updatePlayers()
-end)
-
-ignoresSection:Toggle("Ignore Selected Players", function(value)
-    ignoreSelectedPlayersToggled = value
-    updatePlayers()
-end)
-
-ignoresSection:Dropdown("Players", {}, function(selected)
-    ignorePlayerList = selected
-    updatePlayers()
-end)
-
-ignoresSection:Dropdown("Teams", {}, function(selected)
-    ignoreTeamList = selected
-    updatePlayers()
-end)
-
-collisionsSection:Toggle("Enable Collisions", function(value)
-    collisionsToggled = value
-    updatePlayers()
-end)
-
-miscSection:KeyBind("Toggle UI", "End", function()
-    Hawk:ToggleUI()
-end)
-
-miscSection:KeyBind("Force Update", "Home", function()
-    updatePlayers()
-end)
-
-emergencySection:Button("Fix Missing Players", function()
-    local found = 0
-    for _, player in ipairs(Players:GetPlayers()) do
-        if players[player] or player == lPlayer then continue else
-            found = found + 1
-            addPlayer(player)
-        end
-    end
-    if found > 0 then
-        Hawk:AddNotifications():Notification("Found Players", "Found " .. found .. " players", "Done", 3)
-    else
-        Hawk:AddNotifications():Notification("No Missing Players", "No missing players found", "Done", 3)
-    end
-    updatePlayers()
-end)
-
--- Player Handling
-local function addPlayer(player)
-    table.insert(ignorePlayerList, player.Name)
-    players[player] = {}
-    local playerIdx = players[player]
-    local playerChar = player.Character
-    local defaultProperties = {}
-
-    local debounce = false
-    local function setup(part)
-        defaultProperties[part.Name] = {}
-        local properties = defaultProperties[part.Name]
-        properties.Size = part.Size
-        properties.Transparency = part.Transparency
-        properties.Massless = part.Massless
-        properties.CanCollide = part.CanCollide
-        local getSizeHook = part:AddGetHook("Size", properties.Size)
-        local getTransparencyHook = part:AddGetHook("Transparency", properties.Transparency)
-        local getMasslessHook = part:AddGetHook("Massless", properties.Massless)
-        local getCanCollideHook = part:AddGetHook("CanCollide", properties.CanCollide)
-        local setSizeHook = part:AddSetHook("Size", function(_, value)
-            properties.Size = value
-            getSizeHook:Modify("Size", properties.Size)
-            if extenderToggled then
-                local size = extenderSize
-                return Vector3.new(size, size, size)
-            end
-            return properties.Size
-        end)
-        local setTransparencyHook = part:AddSetHook("Transparency", function(_, value)
-            properties.Transparency = value
-            getTransparencyHook:Modify("Transparency", properties.Transparency)
-            if extenderToggled then
-                return extenderTransparency
-            end
-            return properties.Transparency
-        end)
-        local setMasslessHook = part:AddSetHook("Massless", function(_, value)
-            properties.Massless = value
-            getMasslessHook:Modify("Massless", properties.Massless)
-            if extenderToggled then
-                if part.Name ~= "HumanoidRootPart" then
-                    return true
-                end
-            end
-            return properties.Massless
-        end)
-        local setCanCollideHook = part:AddSetHook("CanCollide", function(_, value)
-            properties.CanCollide = value
-            getCanCollideHook:Modify("CanCollide", properties.CanCollide)
-            if extenderToggled and not collisionsToggled then
-                if part.Name == "Head" or part.Name == "HumanoidRootPart" then
-                    return false
-                end
-            end
-            return properties.CanCollide
-        end)
-        local changed = part.Changed:Connect(function(property)
-            if debounce then return end
-            if properties[property] then
-                if properties[property] ~= part[property] then
-                    properties[property] = part[property]
-                end
-                playerIdx:Update()
-            end
-        end)
-        part.Destroying:Connect(function()
-            getSizeHook:Remove()
-            getTransparencyHook:Remove()
-            getMasslessHook:Remove()
-            getCanCollideHook:Remove()
-            setSizeHook:Remove()
-            setTransparencyHook:Remove()
-            setMasslessHook:Remove()
-            setCanCollideHook:Remove()
-            changed:Disconnect()
-        end)
-    end
-
-    local function isActive(part)
-        local name = part.Name
-        for _, v in pairs(extenderPartList) do
-            if string.match(name, v) or (v == "Custom Part" and string.match(name, customPartName)) or
-            (v == "Left Arm" and string.match(name, "Left") and (string.match(name, "Arm") or string.match(name, "Hand"))) or
-            (v == "Right Arm" and string.match(name, "Right") and (string.match(name, "Arm") or string.match(name, "Hand"))) or
-                      (v == "Left Leg" and string.match(name, "Left") and (string.match(name, "Leg") or string.match(name, "Foot"))) or
-            (v == "Right Leg" and string.match(name, "Right") and (string.match(name, "Leg") or string.match(name, "Foot"))) then
-                return true
-            end
-        end
-        return false
-    end
-
-    local function resize(part)
-        if not defaultProperties[part.Name] then
-            setup(part)
-        end
-        if extenderToggled and isActive(part) then
-            if part.Name ~= "HumanoidRootPart" then
-                part.Massless = true
-            end
-            if not collisionsToggled then
-                part.CanCollide = false
-            end
-            local size = extenderSize
-            part.Size = Vector3.new(size, size, size)
-            part.Transparency = extenderTransparency
-            if part.Name == "Head" then
-                local face = part:FindFirstChild("face")
-                if face then
-                    face.Transparency = extenderTransparency
-                end
-            end
-        else
-            part.Massless = defaultProperties[part.Name].Massless
-            part.CanCollide = defaultProperties[part.Name].CanCollide
-            part.Size = defaultProperties[part.Name].Size
-            part.Transparency = defaultProperties[part.Name].Transparency
-            if part.Name == "Head" then
-                local face = part:FindFirstChild("face")
-                if face then
-                    face.Transparency = defaultProperties["Head"].Transparency
-                end
-            end
-        end
-    end
-
-    function playerIdx:Update()
-        if not playerChar then return end
-        debounce = true
-        for _, v in pairs(playerChar:GetChildren()) do
-            if v:IsA("BasePart") then
-                resize(v)
-            end
-        end
-        debounce = false
-    end
-
-    player.CharacterAdded:Connect(function(character)
-        playerChar = character
-        defaultProperties = {}
-        playerIdx:Update()
-    end)
-    player.CharacterRemoving:Connect(function()
-        if playerIdx then
-            defaultProperties = {}
-        end
-    end)
+-- Função para redimensionar as partes
+local function resize(part)
+	if not defaultProperties[part.Name] then
+		setup(part)
+	end
+	if Toggles.extenderToggled.Value and isActive(part) and not isIgnored() and not isSitting() and not isFFed() and not isDead() then
+		if part.Name ~= "HumanoidRootPart" then
+			part.Massless = true
+		end
+		if not Toggles.collisionsToggled.Value then
+			part.CanCollide = false
+		else
+			part.CanCollide = defaultProperties[part.Name].CanCollide
+		end
+		local size = Options.extenderSize.Value
+		part.Size = Vector3.new(size, size, size)
+		part.Transparency = Options.extenderTransparency.Value
+		if part.Name == "Head" then
+			local face = part:FindFirstChild("face")
+			if face then
+				face.Transparency = Options.extenderTransparency.Value
+			end
+		end
+	else
+		part.Massless = defaultProperties[part.Name].Massless
+		part.CanCollide = defaultProperties[part.Name].CanCollide
+		part.Size = defaultProperties[part.Name].Size
+		part.Transparency = defaultProperties[part.Name].Transparency
+		if part.Name == "Head" then
+			local face = part:FindFirstChild("face")
+			if face then
+				face.Transparency = defaultProperties["Head"].Transparency
+			end
+		end
+	end
 end
 
-local function removePlayer(player)
-    if not players[player] then return end
-    players[player] = nil
+-- Função para atualizar as propriedades do jogador
+function playerIdx:Update()
+	if not playerChar then return end
+	debounce = true
+	for _, v in pairs(playerChar:GetChildren()) do
+		if v:IsA("BasePart") then
+			resize(v)
+		end
+	end
+	debounce = false
 end
 
--- Initial Player Setup
-for _, player in ipairs(Players:GetPlayers()) do
-    if player == lPlayer then
-        continue
-    end
-    addPlayer(player)
-end
-
--- Team List Setup
-for _, team in pairs(Teams:GetTeams()) do
-    if team:IsA("Team") then
-        table.insert(ignoreTeamList, team.Name)
-    end
-end
-
--- Event Connections
-Players.PlayerAdded:Connect(function(player)
-    addPlayer(player)
-end)
-Players.PlayerRemoving:Connect(function(player)
-    removePlayer(player)
-end)
-Teams.ChildAdded:Connect(function(team)
-    if team:IsA("Team") then
-        table.insert(ignoreTeamList, team.Name)
-    end
-end)
-Teams.ChildRemoved:Connect(function(team)
-    if team:IsA("Team") then
-        table.remove(ignoreTeamList, table.find(ignoreTeamList, team.Name))
-    end
+-- Criando o Toggle para ativar/desativar o Hitbox Expander
+hitboxTab:Toggle("Ativar Hitbox Expander", function(value)
+	Toggles.extenderToggled.Value = value
+	playerIdx:Update()
 end)
 
--- Update Players
-local function updatePlayers()
-    for _, player in pairs(players) do
-        task.spawn(function()
-            player:Update()
-        end)
-    end
-end
+-- Slider para ajustar o tamanho da hitbox
+hitboxTab:Slider("Tamanho da Hitbox", 1, 100, Options.extenderSize.Value, function(value)
+	Options.extenderSize.Value = value
+	playerIdx:Update()
+end)
 
--- Notification
-Hawk:AddNotifications():Notification("Loaded", "Squares' Hitbox Expander has been loaded", "Done", 3)
+-- Toggle para ativar/desativar colisão
+hitboxTab:Toggle("Ativar Colisão", function(value)
+	Toggles.collisionsToggled.Value = value
+	playerIdx:Update()
+end)
+
+-- Slider para ajustar a transparência da hitbox
+hitboxTab:Slider("Transparência da Hitbox", 0, 1, Options.extenderTransparency.Value, function(value)
+	Options.extenderTransparency.Value = value
+	playerIdx:Update()
+end)
+
+-- Atualizar a UI
+Window:Update()
