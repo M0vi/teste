@@ -15,11 +15,9 @@ local mainTab = Window:Tab("Main")
 local emergencyTab = Window:Tab("Emergency")
 
 local mainSection = mainTab:Section("Hitbox Extender")
-local espSection = mainTab:Section("ESP")
 local ignoresSection = mainTab:Section("Ignores")
 local collisionsSection = mainTab:Section("Collisions")
 local miscSection = mainTab:Section("Keybinds")
-
 
 local emergencySection = emergencyTab:Section("Fixes")
 
@@ -53,18 +51,6 @@ local extenderSize = 10
 local extenderTransparency = 0.5
 local customPartName = "HeadHB"
 local extenderPartList = {"HumanoidRootPart"}
-local espNameToggled = false
-local espNameColor1 = Color3.fromRGB(255, 255, 255)
-local espNameColor2 = Color3.fromRGB(0, 0, 0)
-local espNameUseTeamColor = false
-local espNameType = "Display Name"
-local espHighlightToggled = false
-local espHighlightColor1 = Color3.fromRGB(0, 0, 0)
-local espHighlightColor2 = Color3.fromRGB(0, 0, 0)
-local espHighlightUseTeamColor = false
-local espHighlightDepthMode = "Occluded"
-local espHighlightFillTransparency = 0.5
-local espHighlightOutlineTransparency = 0
 local ignoreOwnTeamToggled = false
 local ignoreSelectedTeamsToggled = false
 local ignoreSelectedPlayersToggled = false
@@ -95,66 +81,6 @@ end)
 
 mainSection:Dropdown("Body Parts", {"Custom Part", "Head", "HumanoidRootPart", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}, function(selected)
     extenderPartList = selected
-    updatePlayers()
-end)
-
-espSection:Toggle("Name", function(value)
-    espNameToggled = value
-    updatePlayers()
-end)
-
-espSection:ColorPicker("Name Color", Color3.fromRGB(255, 255, 255), function(color)
-    espNameColor1 = color
-    updatePlayers()
-end)
-
-espSection:ColorPicker("Name Outline Color", Color3.fromRGB(0, 0, 0), function(color)
-    espNameColor2 = color
-    updatePlayers()
-end)
-
-espSection:Toggle("Use Team Color For Name", function(value)
-    espNameUseTeamColor = value
-    updatePlayers()
-end)
-
-espSection:Dropdown("Name Type", {"Display Name", "Account Name"}, function(selected)
-    espNameType = selected
-    updatePlayers()
-end)
-
-espSection:Toggle("Chams", function(value)
-    espHighlightToggled = value
-    updatePlayers()
-end)
-
-espSection:ColorPicker("Chams Fill Color", Color3.fromRGB(0, 0, 0), function(color)
-    espHighlightColor1 = color
-    updatePlayers()
-end)
-
-espSection:ColorPicker("Chams Outline Color", Color3.fromRGB(0, 0, 0), function(color)
-    espHighlightColor2 = color
-    updatePlayers()
-end)
-
-espSection:Toggle("Use Team Color For Chams", function(value)
-    espHighlightUseTeamColor = value
-    updatePlayers()
-end)
-
-espSection:Dropdown("Chams Depth Mode", {"Occluded", "AlwaysOnTop"}, function(selected)
-    espHighlightDepthMode = selected
-    updatePlayers()
-end)
-
-espSection:Slider("Chams Fill Transparency", 0, 1, function(value)
-    espHighlightFillTransparency = value
-    updatePlayers()
-end)
-
-espSection:Slider("Chams Outline Transparency", 0, 1, function(value)
-    espHighlightOutlineTransparency = value
     updatePlayers()
 end)
 
@@ -222,14 +148,6 @@ emergencySection:Button("Fix Missing Players", function()
     updatePlayers()
 end)
 
--- Game-Specific Team Module
-if game.GameId == 504234221 then -- Vampire Hunters 3
-    teamModule = require(ReplicatedStorage.Scripts.Modules.PlayerModule)
-end
-if game.GameId == 1934496708 then -- Project: SCP
-    teamModule = require(Workspace:WaitForChild("Teams"))
-end
-
 -- Player Handling
 local function addPlayer(player)
     table.insert(ignorePlayerList, player.Name)
@@ -237,44 +155,6 @@ local function addPlayer(player)
     local playerIdx = players[player]
     local playerChar = player.Character
     local defaultProperties = {}
-
-    local function isTeammate()
-        if game.GameId == 718936923 then -- Neighborhood War
-            if not lPlayer.Character or not playerChar or not playerChar:FindFirstChild("HumanoidRootPart") then return true end
-            return lPlayer.Character.HumanoidRootPart.Color == playerChar.HumanoidRootPart.Color
-        elseif game.PlaceId == 633284182 then -- Fireteam
-            if not player:FindFirstChild("PlayerData") or not player.PlayerData:FindFirstChild("TeamValue") then return true end
-            return lPlayer.PlayerData.TeamValue.Value == player.PlayerData.TeamValue.Value
-        elseif game.PlaceId == 2029250188 then -- Q-Clash
-            if not lPlayer.Character or not playerChar then return true end
-            return lPlayer.Character.Parent == playerChar.Parent
-        elseif game.PlaceId == 2978450615 then -- Paintball Reloaded
-            return getrenv()._G.PlayerProfiles.Data[lPlayer.Name].Team == getrenv()._G.PlayerProfiles.Data[player.Name].Team
-        elseif game.GameId == 1934496708 then -- Project: SCP
-            if Workspace.FriendlyFire.Value then return false end
-            return (not player.Team or player.Team.Name == "LOBBY" or lPlayer.Team.Name == "LOBBY" or player.Team.Name == "Admin" or lPlayer.Team == player.Team) or
-            teamModule[lPlayer.Team.Name] == teamModule[player.Team.Name] or
-            ((teamModule[lPlayer.Team.Name] == "CI" and teamModule[player.Team.Name] == "CD") or
-            (teamModule[player.Team.Name] == "CI" and teamModule[lPlayer.Team.Name] == "CD"))
-        elseif game.PlaceId == 2622527242 then -- SCP rBreach
-            if not player.Team or player.Team.Name == "Intro" or player.Team.Name == "Spectator" or player.Team.Name == "Not Playing" or lPlayer.Team == player.Team then return true end
-            local lPlayerTeamName = lPlayer.Team.Name
-            local playerTeamName = player.Team.Name
-            local selfTeam
-            local playerTeam
-            if lPlayerTeamName == "Class-D Personnel" or lPlayerTeamName == "Chaos Insurgency" then
-                selfTeam = "Chads"
-            end
-            if lPlayerTeamName == "Facility Personnel" or lPlayerTeamName == "Security Department" or lPlayerTeamName == "Mobile Task Force" then
-                selfTeam = "Crayon Eaters"
-            end
-            if lPlayerTeamName == "SCPs" or lPlayerTeamName == "Serpent's Hand" then
-                selfTeam = "Menaces to Society"
-            end
-            if lPlayerTeamName == "Global Occult Coalition" then
-                selfTeam = "Who?"
-            end
-
 
     local debounce = false
     local function setup(part)
@@ -365,14 +245,12 @@ local function addPlayer(player)
         if not defaultProperties[part.Name] then
             setup(part)
         end
-        if extenderToggled and isActive(part) and not isIgnored() and not isSitting() and not isFFed() and not isDead() then
+        if extenderToggled and isActive(part) then
             if part.Name ~= "HumanoidRootPart" then
                 part.Massless = true
             end
             if not collisionsToggled then
                 part.CanCollide = false
-            else
-                part.CanCollide = defaultProperties[part.Name].CanCollide
             end
             local size = extenderSize
             part.Size = Vector3.new(size, size, size)
@@ -408,107 +286,20 @@ local function addPlayer(player)
         debounce = false
     end
 
-
-    -- jank fix for CharacterAdded firing too early
-    local function WaitForFullChar(char)
-        local startTime = tick()
-        local humanoid = char:FindFirstChildWhichIsA("Humanoid")
-        if not humanoid then
-            repeat
-                if char == nil then
-                    return false
-                end
-                humanoid = char:FindFirstChildWhichIsA("Humanoid")
-                task.wait()
-            until humanoid or tick() - startTime >= 2
-        end
-        local loaded = false
-        startTime = tick()
-        repeat
-            local limbs = 0
-            for _, v in pairs(char:GetChildren()) do
-                if humanoid:GetLimb(v) ~= Enum.Limb.Unknown then
-                    limbs += 1
-                end
-            end
-            if limbs == 6 or limbs == 15 then
-                loaded = true
-            end
-            task.wait()
-        until loaded or tick() - startTime >= 3
-        return true
-    end
-
     player.CharacterAdded:Connect(function(character)
         playerChar = character
         defaultProperties = {}
-        if WaitForFullChar(character) then
-            playerIdx:Update()
-            local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then
-                humanoid:GetPropertyChangedSignal("Health"):Connect(function()
-                    if humanoid.Health <= 0 then
-                        playerIdx:Update()
-                    end
-                end)
-                humanoid.StateChanged:Connect(function(_, newState)
-                    if newState == Enum.HumanoidStateType.Dead then
-                        playerIdx:Update()
-                    end
-                end)
-            end
-            if character:FindFirstChildWhichIsA("ForceField") then
-                playerIdx:Update()
-            end
-            character.ChildAdded:Connect(function(child)
-                if game.GameId == 718936923 then -- Neighborhood War
-                    if child.Name == "Dead" then
-                        playerIdx:Update()
-                        return
-                    end
-                end
-                if child:IsA("ForceField") then
-                    playerIdx:Update()
-                end
-            end)
-            character.ChildRemoved:Connect(function(child)
-                if child:IsA("ForceField") then
-                    playerIdx:Update()
-                end
-            end)
-            if game.PlaceId == 4991214437 or game.PlaceId == 6652350934 then -- town
-                local head = playerChar:FindFirstChild("Head")
-                head:GetPropertyChangedSignal("Material"):Connect(function()
-                    playerIdx:Update()
-                end)
-            end
-        end
+        playerIdx:Update()
     end)
     player.CharacterRemoving:Connect(function()
         if playerIdx then
             defaultProperties = {}
         end
     end)
-    player:GetPropertyChangedSignal("Team"):Connect(function(team)
-        playerIdx:Update()
-    end)
-    if game.PlaceId == 6172932937 then -- Energy Assault
-        local ragdolled = player:WaitForChild("ragdolled")
-        ragdolled.Changed:Connect(function()
-            playerIdx:Update()
-        end)
-    end
-    if game.GameId == 1934496708 then -- Project: SCP
-        local ff = Workspace:WaitForChild("FriendlyFire")
-        ff.Changed:Connect(function()
-            playerIdx:Update()
-        end)
-
+end
 
 local function removePlayer(player)
     if not players[player] then return end
-    players[player]:DeleteVisuals()
-    table.remove(ignorePlayerList, table.find(ignorePlayerList, player.Name))
     players[player] = nil
 end
 
@@ -545,15 +336,6 @@ Teams.ChildRemoved:Connect(function(team)
     end
 end)
 
--- Render Step
-RunService:BindToRenderStep("furryWalls", Enum.RenderPriority.Camera.Value - 1, function()
-    for _, player in pairs(players) do
-        task.spawn(function()
-            player:UpdateESP()
-        end)
-    end
-end)
-
 -- Update Players
 local function updatePlayers()
     for _, player in pairs(players) do
@@ -564,5 +346,4 @@ local function updatePlayers()
 end
 
 -- Notification
-Hawk:AddNotifications():Notification("Loaded", "Squares' Hitbox Extender has been loaded", "Done", 3)
-
+Hawk:AddNotifications():Notification("Loaded", "Squares' Hitbox Expander has been loaded", "Done", 3)
