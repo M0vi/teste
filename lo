@@ -5,14 +5,31 @@ local Hawk = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheHanki
 -- Criando a janela do Hawk HUB
 local Window = Hawk:Window({
 	ScriptName = "Hawk HUB",
-	DestroyIfExists = true,
-	Theme = "Dark"
+	DestroyIfExists = true, -- Se falso, a GUI não desaparecerá
+	Theme = "Dark" -- Temas disponíveis: Pink, White, Dark
+})
+
+-- Criando o botão de Fechar
+Window:Close({
+	visibility = true, -- Se falso, o botão de fechar desaparecerá
+	Callback = function()
+		Window:Destroy() -- Função para destruir a GUI
+	end,
+})
+
+-- Criando o botão de Minimizar
+Window:Minimize({
+	visibility = true, -- Se falso, o botão de minimizar desaparecerá
+	OpenButton = true, -- O botão de abrir estará visível
+	Callback = function()
+		-- Aqui você pode adicionar qualquer funcionalidade desejada para o botão de minimizar
+	end,
 })
 
 -- Criando a aba do Hitbox Expander
 local hitboxTab = Window:Tab("Hitbox Expander")
 
--- Função para o debounce
+-- Variáveis globais de controle
 local debounce = false
 local defaultProperties = {}
 local playerChar = game.Players.LocalPlayer.Character
@@ -27,6 +44,7 @@ local function setup(part)
 	properties.CanCollide = part.CanCollide
 	properties.CollisionGroupId = part.CollisionGroupId
 	
+	-- Hooks para propriedades
 	local getSizeHook = part:AddGetHook("Size", properties.Size)
 	local getTransparencyHook = part:AddGetHook("Transparency", properties.Transparency)
 	local getMasslessHook = part:AddGetHook("Massless", properties.Massless)
@@ -73,6 +91,7 @@ local function setup(part)
 		return properties.CanCollide
 	end)
 
+	-- Detectando alterações nas partes
 	local changed = part.Changed:Connect(function(property)
 		if debounce then return end
 		if properties[property] then
@@ -83,6 +102,7 @@ local function setup(part)
 		end
 	end)
 	
+	-- Desconectando quando a parte for destruída
 	part.Destroying:Connect(function()
 		getSizeHook:Remove()
 		getTransparencyHook:Remove()
